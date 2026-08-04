@@ -8,8 +8,12 @@ spec:
   containers:
     - name: docker
       image: docker:27-cli
+      imagePullPolicy: IfNotPresent
       command:
-        - cat
+        - sh
+        - -c
+      args:
+        - sleep 7d
       tty: true
       env:
         - name: DOCKER_HOST
@@ -17,6 +21,7 @@ spec:
 
     - name: dind
       image: docker:27-dind
+      imagePullPolicy: IfNotPresent
       securityContext:
         privileged: true
       env:
@@ -36,10 +41,18 @@ spec:
     }
 
     stages {
+        /*
+         * Không cần stage Checkout.
+         * Jenkins tự checkout repository vì job đang sử dụng
+         * "Pipeline script from SCM".
+         */
+
         stage('Build Image') {
             steps {
                 container('docker') {
                     sh '''
+                        echo "Checking Docker daemon..."
+
                         DOCKER_READY=0
 
                         for i in $(seq 1 30); do
@@ -48,16 +61,19 @@ spec:
                                 break
                             fi
 
-                            echo "Waiting for Docker daemon..."
+                            echo "Waiting for Docker daemon: attempt $i/30"
                             sleep 2
                         done
 
                         if [ "$DOCKER_READY" -ne 1 ]; then
-                            echo "Docker daemon is not ready"
+                            echo "ERROR: Docker daemon is not ready"
                             exit 1
                         fi
 
+                        echo "Docker daemon is ready"
                         docker version
+
+                        echo "Building image: $IMAGE:$TAG"
                         docker build -t "$IMAGE:$TAG" .
                     '''
                 }
@@ -67,17 +83,22 @@ spec:
         stage('Push Image') {
             steps {
                 container('docker') {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )
+                    ]) {
                         sh '''
                             echo "$DOCKER_PASS" | docker login \
                               --username "$DOCKER_USER" \
                               --password-stdin
 
+                            echo "Pushing image: $IMAGE:$TAG"
                             docker push "$IMAGE:$TAG"
+
+                            docker logout
                         '''
                     }
                 }
@@ -87,35 +108,56 @@ spec:
         stage('Update Helm') {
             steps {
                 sh '''
+                    echo "Updating chart/values.yaml to tag: ${TAG}"
+
                     sed -i \
                       "s|^[[:space:]]*tag:.*|  tag: \\"${TAG}\\"|" \
                       chart/values.yaml
+
+                    echo "Updated values.yaml:"
+                    grep -A3 '^image:' chart/values.yaml
 
                     git config user.email "jenkins@lab.local"
                     git config user.name "jenkins"
 
                     git add chart/values.yaml
 
-                    if ! git diff --cached --quiet; then
-                        git commit -m "Update image ${TAG}"
+                    if git diff --cached --quiet; then
+                        echo "No Helm configuration changes"
                     else
-                        echo "No Helm value changes"
+                        git commit -m "Update image tag to ${TAG}"
                     fi
                 '''
 
-                withCredentials([usernamePassword(
-                    credentialsId: 'github-token',
-                    usernameVariable: 'GITHUB_USER',
-                    passwordVariable: 'GITHUB_TOKEN'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github-token',
+                        usernameVariable: 'GITHUB_USER',
+                        passwordVariable: 'GITHUB_TOKEN'
+                    )
+                ]) {
                     sh '''
                         set +x
+
+                        echo "Pushing Helm configuration to GitHub"
+
                         git push \
                           "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/vanquyen252005/gitops.git" \
                           HEAD:main
                     '''
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully"
+            echo "Docker image: ${IMAGE}:${TAG}"
+        }
+
+        failure {
+            echo "Pipeline failed. Check the failed stage in Console Output."
         }
     }
 }
