@@ -1,6 +1,6 @@
 image:
   repository: docker.io/vanquyen2522005/gitops-demo
-  tag: v1
+  tag: "9"
 replicaCount: 2
 service:
   type: NodePort
