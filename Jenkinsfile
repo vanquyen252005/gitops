@@ -6,6 +6,7 @@ pipeline {
         TAG = "${BUILD_NUMBER}"
     }
 
+    stages {
         stage('Build Image') {
             steps {
                 sh 'docker build -t $IMAGE:$TAG .'
@@ -20,8 +21,8 @@ pipeline {
                     passwordVariable: 'PASS'
                 )]) {
                     sh '''
-                    echo $PASS | docker login -u $USER --password-stdin
-                    docker push $IMAGE:$TAG
+                        echo $PASS | docker login -u $USER --password-stdin
+                        docker push $IMAGE:$TAG
                     '''
                 }
             }
@@ -30,12 +31,12 @@ pipeline {
         stage('Update Helm Values') {
             steps {
                 sh '''
-                sed -i "s/tag:.*/tag: \\"$TAG\\"/" chart/values.yaml
-                git config user.email "jenkins@lab.local"
-                git config user.name "jenkins"
-                git add chart/values.yaml
-                git commit -m "Update image tag $TAG" || true
-                git push
+                    sed -i "s/tag:.*/tag: \\"$TAG\\"/" chart/values.yaml
+                    git config user.email "jenkins@lab.local"
+                    git config user.name "jenkins"
+                    git add chart/values.yaml
+                    git commit -m "Update image tag $TAG" || true
+                    git push
                 '''
             }
         }
