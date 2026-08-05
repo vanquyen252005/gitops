@@ -36,7 +36,7 @@ pipeline {
                     git config user.name "jenkins"
                     git add chart/values.yaml
                     git commit -m "Update image tag $TAG" || true
-                    git push
+                    git push origin HEAD:main
                 '''
             }
         }
