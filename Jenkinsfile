@@ -28,17 +28,26 @@ pipeline {
             }
         }
 
-        stage('Update Helm Values') {
-            steps {
-                sh '''
-                    sed -i "s/tag:.*/tag: \\"$TAG\\"/" chart/values.yaml
-                    git config user.email "jenkins@lab.local"
-                    git config user.name "jenkins"
-                    git add chart/values.yaml
-                    git commit -m "Update image tag $TAG" || true
-                    git push origin HEAD:main
-                '''
-            }
+       stage('Update Helm Values') {
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: 'github',
+            usernameVariable: 'GIT_USER',
+            passwordVariable: 'GIT_TOKEN'
+        )]) {
+            sh '''
+            sed -i "s/tag:.*/tag: \\"$TAG\\"/" chart/values.yaml
+
+            git config user.email "jenkins@lab.local"
+            git config user.name "jenkins"
+
+            git add chart/values.yaml
+            git commit -m "Update image tag $TAG" || echo "No changes to commit"
+
+            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/vanquyen252005/gitops.git HEAD:main
+            '''
         }
+    }
+}
     }
 }
