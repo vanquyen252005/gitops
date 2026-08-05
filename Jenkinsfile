@@ -7,13 +7,36 @@ pipeline {
     }
 
     stages {
+	stage('Check Skip CI') {
+    steps {
+        script {
+            def msg = sh(
+                script: 'git log -1 --pretty=%B',
+                returnStdout: true
+            ).trim()
+
+            if (msg.contains('[skip ci]')) {
+                env.SKIP_CI = 'true'
+                echo "Skip CI because this commit was created by Jenkins."
+            } else {
+                env.SKIP_CI = 'false'
+            }
+        }
+    }
+}
         stage('Build Image') {
+	when {
+    expression { env.SKIP_CI != 'true' }
+	}
             steps {
                 sh 'docker build -t $IMAGE:$TAG .'
             }
         }
 
         stage('Push Image') {
+	when {
+    expression { env.SKIP_CI != 'true' }
+	}
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub',
@@ -29,6 +52,9 @@ pipeline {
         }
 
        stage('Update Helm Values') {
+when {
+    expression { env.SKIP_CI != 'true' }
+}
     steps {
         withCredentials([usernamePassword(
             credentialsId: 'github',
@@ -42,7 +68,7 @@ pipeline {
             git config user.name "jenkins"
 
             git add chart/values.yaml
-            git commit -m "Update image tag $TAG" || echo "No changes to commit"
+            git commit -m "Update image tag $TAG [skip ci]" || echo "No changes to commit"
 
             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/vanquyen252005/gitops.git HEAD:main
             '''
