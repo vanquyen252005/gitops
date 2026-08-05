@@ -6,13 +6,6 @@ pipeline {
         TAG = "${BUILD_NUMBER}"
     }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                git url: 'https://github.com/vanquyen252005/gitops.git'
-            }
-        }
-
         stage('Build Image') {
             steps {
                 sh 'docker build -t $IMAGE:$TAG .'
