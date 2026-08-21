@@ -1,0 +1,23 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: gitops-eks
+  region: ap-southeast-2
+
+autoModeConfig:
+  enabled: true
+
+vpc:
+  id: "vpc-075d63dad9771155c"
+  subnets:
+    public:
+      ap-southeast-2a:
+        id: "subnet-04c85d6072748c260"
+      ap-southeast-2b:
+        id: "subnet-021ae50e57d8b7d94"
+    private:
+      ap-southeast-2a:
+        id: "subnet-016ce2cf4b7608aa7"
+      ap-southeast-2b:
+        id: "subnet-0515318e98abb6480"
