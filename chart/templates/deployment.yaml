@@ -1,19 +1,44 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
-  name: nginx
+  name: gitops-demo
+
 spec:
   replicas: {{ .Values.replicaCount }}
+
   selector:
     matchLabels:
-      app: nginx
+      app: gitops-demo
+
   template:
     metadata:
       labels:
-        app: nginx
+        app: gitops-demo
+
     spec:
       containers:
-        - name: nginx
+        - name: gitops-demo
+
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
           ports:
-            - containerPort: 80
+            - containerPort: {{ .Values.service.targetPort }}
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.targetPort }}
+
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.targetPort }}
+
+            initialDelaySeconds: 30
+            periodSeconds: 10

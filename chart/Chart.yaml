@@ -1,4 +1,11 @@
 apiVersion: v2
-name: nginx
+
+name: gitops-demo
+
+description: Helm chart for GitOps demo application
+
+type: application
+
 version: 0.1.0
-appVersion: "1.0"
+
+appVersion: "1.0.0"
